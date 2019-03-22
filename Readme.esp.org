@@ -1,0 +1,118 @@
+
+
+* Entrenamiento de modelos en Skydipper - Prueba de concepto
+** Descripción
+   Skydipper es un proyecto de Simbiótica S.L (D.B.A. Vizzuality),
+   cofinanciado por el Ministerio de Energía, Turimo y Agenda Digital
+   dentro del Plan Nacional de Investigación Científica, Desarrollo e
+   Innovación Tecnológica 2013-2016 con número de expediente TSI-100504-2017-1.
+
+   El objectivo del proyecto es el desarrllo de una herramienta de
+   código abierto para la detección de riesgos ambientales mediante la
+   aplicación de modelos de Aprendizaje Automático (ML, de Machine
+   Learning en sus siglas en inglés) a imágenes satelitales.
+
+   Esta Prueba de Concepto (PdC) implementa un proceso de datos que a
+   partir de datos provistos por una plataforma en la nube (Google
+   Earth Engine en el caso que nos ocupa) realiza las transformaciones
+   necesarias en los datos originales y entrena un modelo de visión
+   automática capaz de discriminar entre cultivos. Un proceso extra de
+   validación se realiza con este modelo, donde este es validado
+   contra una fracción de los datos originales.
+
+   Las imágenes por satélite han sido tomadas de Copernicus 2, los dos
+   satélites multiespectrales puestos en marcha por la Unión
+   Europea. Los datos de cultivos han sido tomados de la fuente de
+   datos 'Croplands', desarrollada por el Departamento de Agricultura
+   estadounidense (USDA)
+** Ejecutando la PdC
+   Este proceso ha sido implementado en docker-compose. Como parte del
+   proceso tal y como se define en los diferentes dockerfiles se
+   descargarán, compilarán e instalarán diversas dependencias del
+   proceso de datos. Entre estas se incluyen python 3.6, GDAL, varias
+   librerías de Google Cloud y tensorflow. Se recomienda
+   encarecidamente ejecutar este proceso en un entorno con aceleración
+   gráfica por GPU, sea en la nube (p.ej., en instancias de GCE con
+   soporte para GPU) o en una workstation con una tarjeta gráfica
+   capaz de correr CUDA. Adicionalmente es necesario soporte de
+   nvidia-docker. En este documento se encontrarán más detalles de
+   instalación, pero es recomendable consultar la documentación
+   relativa a su plataforma para obtener más detalles.
+
+   Como parte de este repositorio se proporciona un script capaz de
+   lanzar el proceso, una vez configuradas las dependencias. Su uso es
+   como sigue:
+
+#+BEGIN_SRC
+▶ ./train_model.sh
+Usage: train_model.sh {generate_data|preprocess|train|ingest}
+#+END_SRC
+   
+   Estos cuatro pasos (generatedate, preprocess, train e ingest) están
+   diseñados para ser ejecutados secuencialmente, dado que van a
+   generar artefactos en el sistema de archivos del ordenador donde se
+   corran. Particularmente: el primer paso generará un directorio
+   llamado 'samples' (muestras), al cual descargará datos desde la
+   nube. Los datos colocados en este lugar serán transformados para
+   realizar entrenamiento de modelos; y a su vez el modelo resultado
+   de este entrenamiento será guardado en el directorio 'networks'.
+
+*** Instalación de los componentes necesarios.
+    Necesitará instalar docker y docker-compose para ejecutar esta
+    PdC. El motor de docker `nvidia-docker` es necesario para proveer
+    de aceleración gráfica al proceso de entrenamiento, con lo que es
+    importante (aunque no esencial) contar con él. Para obtener
+    instrucciones sobre la instalación de docker, refiérase a la
+    [[https://docs.docker.com/install/][documentación de docker]] y a
+    la documentación de
+    [[https://docs.docker.com/compose/install/][docker-compose]] para
+    obtener instrucciones de como instalar estos programas en su
+    entorno. En el caso de usar
+    [[https://github.com/NVIDIA/nvidia-docker][nvidia-docker]], tenga
+    en cuenta que necesitará una tarjeta gráfica adecuada, tanto en un
+    ordenador personal como en un entorno en la nube. Es importante
+    [[https://docs.nvidia.com/dgx/nvidia-container-runtime-upgrade/index.html][configurar
+    el runtime de Docker adecuadamente]] para poder ejecutar los ejemplos.
+
+*** Acceso a GEE
+    Los datos de esta prueba de concepto provienen de Google Earth
+    Engine (GEE), una plafatorma de computación en la nube operada por
+    Google. GEE tiene un catálogo de imágenes satelitales en el rango
+    de los petabytes. GEE no es un servicio abierto, con lo que será
+    necesario proveer credenciales autorizadas al ejecutar esta
+    herramienta. Para obtener más información sobre este software,
+    consulte la [[https://earthengine.google.com/][página de inicio]]
+    del proyecto, donde también podrá obtener acceso en caso de que no
+    tuviera. Una vez provisto de este acceso, tendrá que generar y
+    proveer sus propias credenciales. Para ello, siga
+    [[https://developers.google.com/earth-engine/python_install_manual][esta guía]].
+
+    Además de esto, el primer paso del proceso necesita credenciales
+    para poder subir imágenes a Google Cloud. Este proceso está
+    diseñado para ser ejecutado en la plataforma Skydipper, pero el
+    primer paso no es estrictamente necesario (dado que los datos ya
+    han sido generados y guardados en la nube). En caso de querer
+    ejecutar este proceso en otra plataforma, por favor modifique el
+    archivo de docker-compose para configurar el proceso con otras
+    credenciales.
+*** Ejecución del proceso
+    Para la ejecucuión del proceso, corra los siguientes pasos en
+    orden para obtener sus resultados:
+    - ~./train_model.sh generate_data~ especificará una seria de áreas
+      de interés y las obtendrá de GEE. Estas imágenes será subidas a
+      un 'bucket' de almacenamiento en formato tiff.
+    - ~./train_model.sh preprocess~ descargará estos datos, los
+      compilará en un formato adecuado para su entrenamiento por
+      tensorflow, realizará una serie de transformaciones
+      (p.ej. particionará el conjunto de datos en conjuntos de
+      entrenamiento y test) y compilará a su vez un modelo.
+    - ~./train_model.sh train~ tomará estos datos preprocesados y
+      entrenará una red neuronal con ellos. El resultado de este
+      proceso se guardará en el directorio ~networks~.
+    - ~./train_model.sh ingest~ tomará esta red neuronal y la aplicará
+      al conjunto de datos de test.
+** Evaluación del modelo y resultados
+   Se ha provisto un ejemplo de la realización de este flujo de
+   trabajo en el archivo 'workflow.html' presente en este repositorio.
+
+ (c) Vizzuality- Simbiotica S.L. 2017-2019

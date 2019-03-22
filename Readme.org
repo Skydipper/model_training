@@ -1,0 +1,106 @@
+* Skydipper Model Training PoC
+An spanish version of this document is provided [[][here]]
+
+** Description
+   [[http://www.skydipper.com][Skydipper]] is a Simbiótica S.L. (D.B.A. Vizzuality) project,
+   cofinanced by the Ministry of Energy, Tourism and Digital Agenda as
+   part of the National Scientific Research, Development, and
+   Technical Innovation Plan 2013-1016 with expedient number
+   TSI-100504-2017-1.
+
+   The aim of the project is the development of an open source
+   platform for the detection of environmental risks through the
+   application of Machine Learning models to Earth Observation data.
+
+   This Proof of Concept (PoC) implements a data pipeline that takes
+   data from a cloud provider (Google Earth Engine in this case),
+   performs the necessary transformations on the original data and
+   trains a computer vision model able to discriminate crops. An extra
+   validation process is provided where the model is tested with a
+   fraction of the original data.
+
+   The satellite imagery is taken from the Copernicus 2 satellite data
+   (an initiative of the European Union), and the crops labels are
+   taken from the Croplands data source, provided by the USDA.
+** Running the PoC
+   This process is implemented in docker-compose. As part of the stack
+   configured the dockerfiles will download, compile and install
+   several software applications: GDAL, Google Cloud libraries and
+   tensorflow. Your host environment won't be changed. It's extremely
+   recommended to run this pipeline in a host with GPU acceleration,
+   either in-cloud (e.g. CPU-enabled GCE instances) or in a
+   workstation with a CUDA enabled graphics card; and nvidia-docker
+   support. More details are provided in this document, but for more
+   details on how to set this up, refer to your platform
+   documentation.
+
+   We provide a convenience script that is able to provision the
+   instances tasked with the different steps of the data
+   pipeline. Usage is as follows, given a properly configured
+   environment:
+
+#+BEGIN_SRC
+▶ ./train_model.sh
+Usage: train_model.sh {generate_data|preprocess|train|ingest}
+#+END_SRC
+
+   The four steps (generate_data, preprocess, train, and ingest) are
+   meant to be ran in order, as they'll produce artifacts in the
+   filesystem -- i.e. the first step will create a directory called
+   'samples', to which it will download data from the cloud. Data
+   placed there will be transformed for model traininga and the final
+   model will be outputted to the 'networks' directory.
+*** Installing necessary components
+    You'll need to install docker and docker-compose to run the
+    PoC. `nvidia-docker` is needed to provide GPU acceleration to the
+    training process, so you'll want to install it. Refer to the
+    [[https://docs.docker.com/install/][docker documentation]] and the [[https://docs.docker.com/compose/install/][docker-compose documentation]] for
+    instructions on how to set these up in your environment.
+
+    While it can be ran with CPU support, it's generally recommended
+    to use a GPU for the model training -- otherwise, the model
+    training will take up a lot of time. You'll need to set up
+    [[https://github.com/NVIDIA/nvidia-docker][nvidia-docker]] to add GPU support to the training process. Notice
+    that nvidia-docker needs a suitable graphic card to run (either on
+    a workstation or in a cloud instance). You'll need to [[https://docs.nvidia.com/dgx/nvidia-container-runtime-upgrade/index.html][set the
+    docker runtime to nvidia-docker]] as default or [[https://devblogs.nvidia.com/gpu-containers-runtime/][modify]] the
+    docker-compose file to use this engine.
+*** Access to Google Earth Engine and credentials
+    Data comes from Google Earth Engine, a platform running on Google
+    Cloud that provides a multi-petabyte catalog of satellite
+    imagery. Google Earth Engine is not an open access service, so
+    you'll need proper credentials when using this ETL tool. For more
+    information on this, check out the [[https://earthengine.google.com/][home page]] of the project, where
+    you can request access. Once you are provided with access to GEE,
+    you'll have to provide your own authentication credentials. Follow
+    [[https://developers.google.com/earth-engine/python_install_manual][this guide]] for instructions.
+
+    In addition to this, the first step of the process needs
+    credentials to upload the data to Google Cloud. The pipeline is
+    meant to run in the Skydipper platform, but by default the first
+    step needs not to be run (i.e. there are already results stored in
+    the cloud for this step). In case you would like to use your own
+    cloud platform, be advised that you'll need to adapt the code to
+    reflect the proper locations. In this case, modify the
+    docker-compose file to provide the instances with a
+    ~$GOOGLE_APPLICATION_CREDENTIALS~ pointing to a valid service account.
+*** Running the process
+    Running the process in order will give out the following results:
+    - ~./train_model.sh generate_data~  will set up a series of areas of
+      interest and instruct Google Earth Engine to upload this data to
+      a bucket in tiff format.
+    - ~./train_model.sh preprocess~  will download this data, merge it
+      and transform it so it's in a format suitable for tensorflow to
+      compile a model, in addition to other tasks (e.g. the train-test
+      split).
+    - ~./train_model.sh train~  will take the preprocessed data and
+      train a neural network on it. It will output the serialized
+      models to the ~networks~ directory.
+    - ~./train_model.sh ingest~ will take the generated neural network
+      model and run it on the testing set.
+** Model evaluation and results
+   An example of this workflow is provided in a computational
+   notebook. A rendered version of it can be found in the file
+   workflow.html placed in this same repository.
+
+ (c) Vizzuality- Simbiotica S.L. 2017-2019
