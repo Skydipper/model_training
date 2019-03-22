@@ -1,5 +1,5 @@
 * Skydipper Model Training PoC
-An spanish version of this document is provided [[][here]]
+An spanish version of this document is provided [[https://github.com/Skydipper/model_training/blob/master/Readme.esp.org][here]]
 
 ** Description
    [[http://www.skydipper.com][Skydipper]] is a Simbiótica S.L. (D.B.A. Vizzuality) project,
